@@ -3,7 +3,15 @@ import requests
 
 st.title("🤖 AI DevOps Chatbot – Docker Assistant")
 
-user_input = st.text_input("Ask something about your containers (e.g. 'restart stopped', 'show status'):")
+user_input = st.text_input(
+    "Ask your Docker assistant a question, e.g.:\n"
+    "• 'Restart stopped containers'\n"
+    "• 'Show container status'\n"
+    "• 'Check logs for container xyz'\n"
+    "• 'Why is my app not accessible?'\n"
+    "• 'List all running containers\n'"
+    "•  'Troubleshooting'"
+)
 
 if st.button("Ask"):
     try:
@@ -19,6 +27,17 @@ if st.button("Ask"):
 
         st.subheader("🐳 Container Summary")
         st.json(data["containers"])
+
+        # ✅ Show troubleshooting info if present
+        troubleshooting_text = data.get("troubleshooting")
+        if troubleshooting_text:
+            st.subheader("🛠 Docker Troubleshooting")
+            st.code(troubleshooting_text, language="bash")
+
+        if data.get("troubleshooting"):
+           st.subheader("⚠️ Troubleshooting Steps")
+           for container, steps in data["troubleshooting"].items():
+             st.write(f"**{container}**:\n{steps}")
 
     except requests.exceptions.RequestException as e:
         st.error(f"❌ Backend request failed: {e}")
