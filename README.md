@@ -1,303 +1,225 @@
-Docker Assistant — Prompt Guide (How to talk to the bot)
+🐳 Docker Assistant — Prompt Guide
 
-Short: type plain English prompts. The bot will ask for clarification when needed (e.g., which container), then run the requested action and confirm.
+A complete reference on how to interact with the bot using natural language.
 
-1. Show containers & status
+🧭 Overview
 
-What to type
+You can talk to the Docker Assistant in plain English — no complex syntax needed.
+The bot understands intent (e.g., “start container webapp”), asks for clarification if required, and performs the requested Docker actions automatically.
 
+🧩 1. Show Containers & Status
+💬 What to Type
 show all containers
-
 list containers
-
 show running containers
-
 show stopped containers
-
 show container health
 
-What bot does / asks
+🤖 What the Bot Does
 
-Immediately returns a neat table or list of containers (name, status, image, id).
+Returns a table or list of containers (name, status, image, id).
 
-For show container health it returns 🟢 / 🟠 / 🔴 statuses and healthcheck values.
+For show container health, displays 🟢 / 🟠 / 🔴 statuses with healthcheck info.
 
-Example
-
+🧾 Example
 You: show stopped containers
 Bot: 🔴 Stopped Containers
  - webapp → Image: nginx:latest, Exit Code: 0, Last stopped at: 2025-11-11T12:05:23Z
 
-2. Start a container
+▶️ 2. Start a Container
+💬 What to Type
+start container <name>
+start container
+start all stopped containers
+start all stopped
 
-What to type
-
-start container <name> — e.g. start container webapp
-
-start container — bot will prompt for which container
-
-start all stopped containers or start all stopped — bulk action
-
-Follow-up prompt (if you typed just start container)
-
+💡 Follow-Up (if you omit container name)
 Bot: Do you want to start a specific container or all stopped containers?
 1) Provide container name (e.g., webapp)
 2) Or type 'all' to start all stopped containers
 
+🤖 What the Bot Does
 
-What bot does
+If paused → unpauses automatically.
 
-If container is paused → bot automatically unpauses it and confirms.
+If stopped → starts it.
 
-If container is stopped → bot starts it and confirms.
+If already running → reports as already running.
 
-If container already running → bot says it’s already running.
-
-Example flows
-
+🧾 Examples
 You: start container
 Bot: Provide a name or type 'all'
 You: webapp
-Bot: ✅ Container `webapp` started successfully.
-
-
-or
+Bot: ✅ Container 'webapp' started successfully.
 
 You: start all stopped
 Bot: ✅ Started 3 stopped containers.
 
-3. Stop a container
+⏹️ 3. Stop a Container
+💬 What to Type
+stop container <name>
+stop container
+stop all running containers
+stop all running
 
-What to type
+🤖 What the Bot Does
 
-stop container <name> — e.g. stop container db
+Stops the specified container(s). If already stopped, the bot notifies you.
 
-stop container — bot will ask which one
-
-stop all running containers or stop all running
-
-Follow-up prompt (if you typed just stop container)
-
-same: bot lists containers and asks to provide a name or all.
-
-What bot does
-
-Stops the container(s) and confirms. If container already stopped, bot reports that.
-
-Example
-
+🧾 Example
 You: stop container
 Bot: Which container? (or type 'all')
 You: api
-Bot: 🛑 Container `api` stopped successfully.
+Bot: 🛑 Container 'api' stopped successfully.
 
-4. Restart a container
-
-What to type
-
+🔁 4. Restart a Container
+💬 What to Type
 restart container <name>
+restart container
+restart all
+restart all running
 
-restart container (bot will prompt)
+🤖 What the Bot Does
 
-restart all or restart all running
+Unpauses paused containers before restarting.
 
-What bot does
+Confirms upon success.
 
-If container is paused → bot will unpause then restart as needed.
-
-Confirms after successful restart.
-
-Example
-
+🧾 Example
 You: restart container webapp
-Bot: 🔁 Container `webapp` restarted successfully.
+Bot: 🔁 Container 'webapp' restarted successfully.
 
-5. Pause / Resume (Unpause)
-
-What to type
-
+⏸️ 5. Pause / Resume a Container
+💬 What to Type
 pause container <name>
+resume container <name>
+unpause container <name>
 
-pause container (bot will prompt)
+🤖 What the Bot Does
 
-resume container <name> or unpause container <name>
+Pauses (suspends) or resumes (unpauses) containers as requested.
 
-What bot does
-
-Pauses a running container (suspends processes) or resumes a paused one.
-
-Confirms success.
-
-Example
-
+🧾 Example
 You: pause container db
-Bot: ⏸️ Container `db` paused successfully.
+Bot: ⏸️ Container 'db' paused successfully.
 You: resume container db
-Bot: ▶️ Container `db` resumed successfully.
+Bot: ▶️ Container 'db' resumed successfully.
 
-6. Remove / Delete container(s)
+🗑️ 6. Remove / Delete Containers
+💬 What to Type
+remove container <name>
+remove container
+remove all stopped containers
+delete all stopped
 
-What to type
+🤖 What the Bot Does
 
-remove container <name> or delete container <name>
+Removes the container(s) — force remove by default.
 
-remove container (bot will prompt)
-
-remove all stopped containers or delete all stopped
-
-What bot does
-
-For single container: removes (force remove) and confirms.
-
-For all variants: removes appropriate set and returns count. (Use caution)
-
-Example
-
+🧾 Example
 You: remove container
 Bot: Provide name or 'all' to remove all stopped
 You: all
 Bot: 🗑️ All stopped containers deleted successfully.
 
-7. Create / Run new container
-
-What to type
-
+🚀 7. Create / Run a New Container
+💬 What to Type
 create container <name> from <image>
-
 create container <name> from <image> on port <port>
 
-If you omit details
+🤖 What the Bot Does
 
-Bot will show the usage template and a list of popular images to choose from.
+Creates and starts a new container from the specified image.
+If details are missing, it shows a usage template and common images.
 
-Example
-
+🧾 Example
 You: create container myweb from nginx:latest on port 8080
 Bot: 🚀 New container 'myweb' started from image 'nginx:latest' on port 8080.
 
-8. Logs & analysis
-
-What to type
-
+📜 8. Logs & Analysis
+💬 What to Type
 show logs for <container_name>
-
 get logs <container_name>
-
 tail logs <container_name>
 
-What bot does
+🤖 What the Bot Does
 
-Returns last N lines (default tail) of logs and may run analyze_logs() to give suggestions.
+Shows recent logs and may analyze them for common issues.
 
-Example
-
+🧾 Example
 You: show logs for webapp
 Bot: 📄 Logs for 'webapp':
 <last 400 chars>
 Bot: 🔍 Likely cause: port conflict / missing env var / DB connection refused
 
-9. Troubleshooting & diagnostics
+🧰 9. Troubleshooting & Diagnostics
+💬 Useful Prompts
+troubleshooting
+show troubleshooting
+show port conflicts
+check ports
+restart stopped containers
 
-Useful prompts
+🤖 What the Bot Does
 
-troubleshooting or show troubleshooting — shows common Docker commands and steps.
+Checks for port 80/443 conflicts (e.g., Apache or Nginx).
 
-show port conflicts or check ports — checks ports 80 and 443 and suggests actions.
+Suggests stopping conflicting services.
 
-restart stopped containers — attempts to restart all stopped containers and reports per-container troubleshooting if a restart fails.
+Provides troubleshooting steps.
 
-What bot does
-
-Runs sudo lsof -i :80 and :443 checks, suggests stopping apache2/nginx if found, shows commands to fix, and provides helpful next steps.
-
-Example
-
+🧾 Example
 You: show port conflicts
 Bot: Port 80 in use by apache2 (pid 1047)
 Bot: Suggestion: sudo systemctl stop apache2
 
-10. Bulk / shorthand commands
+⚙️ 10. Bulk / Shorthand Commands
+💬 Examples
+start all stopped
+stop all running
+restart all
+remove all stopped
 
-Accepted natural shortcuts
+🤖 What the Bot Does
 
-start all stopped — start every stopped container
+Performs the bulk action and returns a summary (count + confirmation).
 
-stop all running — stop all running containers
-
-restart all — restart every container
-
-remove all stopped — delete all exited containers
-
-Bot behavior
-
-For bulk commands, bot performs the bulk operation and returns a count/confirmation.
-
-11. Interactive flow summary (how the pending prompt works)
-
-You say a lifecycle command but don’t provide a container name (e.g., start container).
-
-Bot replies with options:
-
-Provide a single container name (example: webapp)
-
-Or type all to perform the action on all matching containers (all stopped for start, all running for stop, etc.)
-
-You reply with the name or all.
-
-Bot executes and confirms the outcome.
-
-Example
-
+🧩 11. Interactive Flow Summary
+Example Flow
 You: stop container
 Bot: Would you like to specify a name or type 'all'?
 You: all
 Bot: 🛑 Stopped 4 running containers.
 
-12. Common errors & what to do
+❗ 12. Common Errors & Fixes
+Error	Meaning / Fix
+cannot start a paused container, try unpause instead	Bot now detects paused state and unpauses automatically.
+address already in use	Port conflict (80/443). Bot suggests stopping Apache/Nginx.
+container not found	Check spelling with show all containers. Names are case-sensitive.
+💡 13. Tips for Users
 
-"cannot start a paused container, try unpause instead"
-→ Bot will now detect paused state and unpause instead of start. If you see this, let the bot unpause or use resume/unpause.
+Use clear verbs: start, stop, restart, pause, resume, remove, create, show logs.
 
-Port conflict errors (address already in use)
-→ Bot will show processes using port 80/443 and recommend sudo systemctl stop apache2 or sudo systemctl stop nginx. Use caution with these commands.
+Unsure of name? → show all containers first.
 
-Container not found
-→ Check exact container name with show all containers. Names are case-sensitive.
+⚠️ Double-check destructive commands (remove all) — they’re permanent.
 
-13. Tips for users
+Bot automatically handles paused containers.
 
-For best results, use the words shown (start/stop/restart/pause/unpause/remove/create/show logs). The assistant recognizes many variations, but these are the clearest.
+If OpenAI (AI mode) is down, fallback logic still performs container operations locally.
 
-If you’re unsure of container name, type show all containers first — then copy/paste the name.
-
-For destructive commands (remove all, delete all) double-check — these remove containers permanently.
-
-The bot auto-handles paused containers (it will unpause rather than failing).
-
-If AI (OpenAI) is unavailable, the bot falls back to rule-based replies and still performs container operations locally.
-
-14. Quick reference cheat-sheet
-
-show all containers → list all
-
-show running containers → running only
-
-show stopped containers → exited containers (with exit codes)
-
-start container <name> → start/unpause as needed
-
-start container → bot will ask: name or all
-
-stop container <name> or stop container → same interactive flow
-
-restart container <name> or restart all
-
-pause container <name> / resume container <name>
-
-remove container <name> / remove all stopped containers
-
-create container <name> from <image> on port <port>
-
-show logs for <name> → last logs + analysis
-
-show port conflicts → check port 80 / 443 and suggestion
+📘 14. Quick Reference Cheat Sheet
+Command	Action
+show all containers	List all containers
+show running containers	Only running
+show stopped containers	Only stopped/exited
+start container <name>	Start/unpause
+stop container <name>	Stop
+restart container <name>	Restart
+pause container <name>	Pause
+resume container <name>	Resume
+remove container <name>	Delete container
+remove all stopped containers	Delete all exited
+create container <name> from <image> on port <port>	Create new
+show logs for <name>	View logs
+show port conflicts	Check port 80/443 usage
