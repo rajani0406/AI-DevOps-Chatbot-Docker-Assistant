@@ -238,15 +238,15 @@ def show_popular_images():
 # 🧠 Diagnostics & Logs
 # ================================
 
-#def analyze_port_conflict(port):
+def analyze_port_conflict(port):
     """
   #  Checks which process is using the given host port and returns a suggestion.
     """
-   # try:
-    #    output = subprocess.check_output(f"sudo lsof -i :{port}", shell=True, text=True)
-    #    return f"Port {port} is currently used by:\n```\n{output}\n```\nConsider stopping that process before restarting the container."
-   # except subprocess.CalledProcessError:
-   #     return f"Port {port} might be in use, but could not detect the process automatically."
+    try:
+        output = subprocess.check_output(f"sudo lsof -i :{port}", shell=True, text=True)
+        return f"Port {port} is currently used by:\n```\n{output}\n```\nConsider stopping that process before restarting the container."
+    except subprocess.CalledProcessError:
+        return f"Port {port} might be in use, but could not detect the process automatically."
 
 def restart_stopped_containers():
     containers = client.containers.list(all=True)
