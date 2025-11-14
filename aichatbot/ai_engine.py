@@ -9,6 +9,9 @@ from dns_resolution_error import Dnsissue
 from dns_resolution_error import fix_dns_issue
 from port_conflict import PortConflict
 from port_conflict import check_port_usage
+from container_trobleshoot import troubleshoot_container
+from exit_codes import explain_exit_code
+from exit_codes import handle_exit_code_query
 
 from docker_ops import (
     client,
@@ -27,10 +30,12 @@ pending_action = {"action": None}
 pending_restart_all = {"awaiting_confirmation": False}
 
 response = None
+
 # Initialize OpenAI safely
 #openai.api_key = os.getenv("OPENAI_API_KEY")
 
 LOG_SNIPPET_LENGTH = 400  # last N chars of logs
+container_name = None
 
 def interpret_docker_question(question, containers):
    
@@ -79,8 +84,11 @@ def interpret_docker_question(question, containers):
     if "health" in q_lower or "healthy" in q_lower:
         return get_container_health_summary()
     
-        #when user says dns issues
+    elif "exit code" in q_lower or "exited with code" in q_lower:
+        return handle_exit_code_query(q_lower)
+
     
+    #DNS issue    
     if "dns resolution issues" in q_lower or "temporary failure resolving" in q_lower:
         return Dnsissue()
     elif q_lower.strip() in ["fix dns issue", "fix dns"]:
@@ -104,6 +112,22 @@ def interpret_docker_question(question, containers):
 
    # Finally return the response
      return response  
+
+             #container trobleshooting
+    if "troubleshoot" in q_lower :
+    # Try to extract container name from the user query
+     words = q_lower.split()
+     container_name = None
+     for i, w in enumerate(words):
+        if w in ["troubleshoot"]:
+            # Look for the next word as container name
+           if i + 1 < len(words):
+            container_name = words[i + 1]
+            break
+     if container_name:
+        return troubleshoot_container(container_name)
+     else:
+        return "⚠️ Please specify the container name, e.g. `troubleshoot api-container`."
 
     # ⚙️ Step 4: Lifecycle actions (start/stop/restart/pause/delete)
     lifecycle_actions = ["start", "stop", "restart", "pause", "delete", "remove"]
@@ -208,19 +232,34 @@ def mock_ai_response(question, containers):
         return "✅ I can pull/update container images if you specify the image name. Example: 'pull image nginx:latest'."
 
     elif "network issue" in question_lower:
-        return "⚠️ I can check container logs for network errors, unreachable hosts, or misconfigured ports."
+        return "⚠️ I can check container logs for network errors, unreachable hosts, or misconfigured ports. if you can just specify container name"
 
     else:
         return (
-            "I can help with the following Docker tasks:\n"
-            "• Show container status or counts\n"
-            "• Restart stopped containers with troubleshooting\n"
-            "• Fetch container logs and analyze errors\n"
-            "• Start/stop/remove containers\n"
-            "• Pull/update container images\n"
-            "• Troubleshoot app accessibility or network issues\n"
-            "• Basic Trobleshooting\n"
-            "• Basic Docker Commands\n"
-            "\nTry asking: 'show status', 'restart stopped', or 'why is my app not accessible'."
-            
-        )
+    "---\n\n"
+    "### 🧩 **I can help with the following Docker tasks: Or Just check the command reference tab**\n\n"
+    "• Show container status, counts, or health  \n"
+    "• Restart stopped or exited containers  \n"
+    "•troubleshoot local-development-api-1? \n"
+    "•Check logs local-development-api-1\n"
+    "•check logs\n"
+    "• Start, stop, restart, pause, or remove containers  \n"
+    "• Check container logs, show errors, and analyze issues  \n"
+    "• Fix DNS or port conflict problems  \n"
+    "• Pull, create, or run container images  \n"
+    "• List public or local images  \n"
+    "• Troubleshoot container, app, or network issues  \n"
+    "• Perform basic Docker troubleshooting and checks  \n"
+    "• Display general container info (stopped, running, exited)\n\n"
+    "---\n\n"
+    "💡 **Try asking:**\n"
+    "- “Is my container healthy?”  \n"
+    "- “Restart stopped containers”  \n"
+    "- “Show container troubleshooting commands”  \n"
+    "- “Why is my app not accessible?”  \n"
+    "- “Fix DNS issue”  \n"
+    "- “Resolve port conflict”  \n"
+    "- “List public images”  \n"
+    "- “Show stopped containers”\n\n"
+    "---"
+)

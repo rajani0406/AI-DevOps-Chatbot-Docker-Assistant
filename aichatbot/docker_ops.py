@@ -194,6 +194,66 @@ def create_new_container(image=None, name=None, port=None):
             return (
                 "🧩 To create a new container, specify:\n"
                 "`create container <name> from <image> [on port <port>]`\n\n"
+            "🧩To create a new container, you can use several methods. Here are the options with examples and explanations:\n\n"
+
+            "**1️⃣ Using an existing image (`docker run`)**\n"
+            "`create container myweb from nginx on port 8080`\n"
+            "_Example with port: `docker run -d -p 8080:80 nginx`_\n"
+            "_Example without port: `docker run -d nginx`_\n"
+            "⚠️ Without port mapping, the container runs internally and cannot be accessed from your host. Useful for internal tasks only.\n\n"
+
+            "**2️⃣ Using `docker create` / `docker container create` (create without starting)**\n"
+            "`create container myweb from nginx`\n"
+            "_Example: `docker create --name myweb -p 8080:80 nginx && docker start myweb`_\n"
+            "_Using explicit container command: `docker container create --name myweb -p 8080:80 nginx && docker start myweb`_\n"
+            "✅ Allows creating a container first and starting it later. Useful for pre-configured setups.\n\n"
+
+            "**3️⃣ From a custom Dockerfile**\n"
+            "`build image mypythonapp from Dockerfile and create container myapp`\n"
+            "_Dockerfile Example:_\n"
+            "```\nFROM python:3.12\nWORKDIR /app\nCOPY . .\nRUN pip install -r requirements.txt\nCMD [\"python\", \"app.py\"]\n```\n"
+            "_Build & run: `docker build -t mypythonapp:1.0 . && docker run -d mypythonapp:1.0`_\n"
+            "✅ Great for custom applications; ensures consistent environment.\n\n"
+
+            "**4️⃣ Using Docker Compose**\n"
+            "`create container stack myapp`\n"
+            "_docker-compose.yml Example:_\n"
+            "```\nversion: '3.9'\nservices:\n  web:\n    image: nginx\n    ports:\n      - \"8080:80\"\n  db:\n    image: postgres\n    environment:\n      POSTGRES_PASSWORD: example\n```\n"
+            "_Run: `docker compose up -d`_\n"
+            "✅ Manages multi-container applications easily.\n\n"
+
+            "**5️⃣ Using Kubernetes (for clusters)**\n"
+            "`create container pod myapp`\n"
+            "_pod.yaml Example:_\n"
+            "```\napiVersion: v1\nkind: Pod\nmetadata:\n  name: myapp\nspec:\n  containers:\n  - name: web\n    image: nginx\n```\n"
+            "_Run: `kubectl apply -f pod.yaml`_\n"
+            "✅ Ideal for scalable applications on a cluster.\n\n"
+
+            "**6️⃣ Import from tarball**\n"
+            "`create container myapp from tarball myapp.tar`\n"
+            "_Example: `docker import myapp.tar myappimage && docker run -it myappimage bash`_\n"
+            "✅ Useful to restore or migrate containers from backups.\n\n"
+
+            "**7️⃣ Using `docker commit` (create image from container)**\n"
+            "`create image mycustomimage from running container myapp`\n"
+            "_Example: `docker commit myapp mycustomimage && docker run -d --name newapp mycustomimage`_\n"
+            "✅ Saves the current state of a container as a reusable image.\n\n"
+
+            "**8️⃣ Save and load images (`docker save` / `docker load`)**\n"
+            "`save/load image for transport or backup`\n"
+            "_Example: `docker save myimage -o myimage.tar && docker load -i myimage.tar && docker run -d --name myapp myimage`_\n"
+            "✅ Useful to move images between hosts without a registry.\n\n"
+
+            "**9️⃣ Pull from remote/private registries**\n"
+            "`create container from remote image`\n"
+            "_Example: `docker run -d --name myapp myrepo/myimage:latest`_\n"
+            "✅ Ensures you can use images stored in private or remote registries.\n\n"
+
+            "**⚠️ Notes on running without port mapping**\n"
+            "- `docker run -d alpine` will start the container but you cannot access services from the host.\n"
+            "- Suitable for background tasks or isolated jobs.\n"
+            "- For web apps or APIs, always use `-p hostPort:containerPort`.\n\n"
+
                 + show_popular_images()
             )
 
