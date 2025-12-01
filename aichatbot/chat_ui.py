@@ -1,28 +1,541 @@
 import streamlit as st
 import requests
+import pandas as pd
+import subprocess
+import shlex
+import re
+from tabulate import tabulate
+from docker_ops import list_all_containers
+from docker_ops import analyze_port_conflict
+from troubleshooting import get_troubleshooting_guide
+import urllib.parse
+from docker_environment_check import docker_environment_tab
+from create_container_tab import docker_create_container_tab
 
-st.title("🤖 AI DevOps Chatbot – Docker Assistant")
+# ===============================
+# Page Configuration
+# ===============================
+st.set_page_config(
+    page_title="AI DevOps Chatbot & Docker Dashboard",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-user_input = st.text_input("Ask something about your containers (e.g. 'restart stopped', 'show status'):")
+# ===============================
+# 🌈 Modern UI Styling
+# ===============================
+st.markdown("""
+    <style>
+    /* --- Page layout --- */
+    .main {
+        background-color: #f9fafb;
+        font-family: 'Inter', sans-serif;
+    }
 
-if st.button("Ask"):
+    h1, h2, h3, h4 {
+        color: #0f172a;
+    }
+
+    /* --- Buttons --- */
+    .stButton>button {
+        background: linear-gradient(90deg, #3b82f6, #2563eb);
+        color: white;
+        border-radius: 10px;
+        font-weight: 500;
+        transition: 0.3s;
+        padding: 8px 20px;
+        border: none;
+    }
+
+    .stButton>button:hover {
+        background: linear-gradient(90deg, #2563eb, #1d4ed8);
+        transform: scale(1.03);
+    }
+
+    /* --- Expanders --- */
+    .stExpander {
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 10px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        margin-bottom: 10px;
+    }
+
+    /* --- Tabs --- */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #e2e8f0;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-weight: 500;
+        color: #334155;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #2563eb;
+        color: white;
+    }
+
+    /* --- Sidebar fix --- */
+    section[data-testid="stSidebar"] {
+        background-color: #f1f5f9;
+        border-right: 2px solid #cbd5e1;
+    }
+
+    /* Keep the sidebar toggle button visible */
+    [data-testid="collapsedControl"] {
+        background-color: #2563eb !important;
+        color: white !important;
+        border-radius: 0 6px 6px 0;
+        padding: 6px;
+        position: fixed;
+        left: 0;
+        top: 60px;
+        z-index: 999;
+        transition: all 0.3s ease;
+    }
+
+    [data-testid="collapsedControl"]:hover {
+        background-color: #1d4ed8 !important;
+        transform: scale(1.05);
+    }
+
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+
+LOG_SNIPPET_LENGTH = 5
+
+# ===============================
+# Sidebar Navigation
+# ===============================
+st.sidebar.title("🐳 Docker Support Panel")
+st.sidebar.markdown("---")
+page = st.sidebar.radio(
+    "Navigate to:",
+    ["🤖 AI Chatbot", "📊 Dashboard", "📋 Containers", "🖼 Images", "💾 Volumes", "🛠 Troubleshooting", "Command Refrence","🐳 Docker Environment Check", "📦 Create Container"]
+)
+st.sidebar.markdown("---")
+
+
+# ===============================
+# Docker Command Terminal (Sidebar Shortcut)
+# ===============================
+with st.sidebar.expander("💻 Docker Terminal"):
+    st.caption("Run safe Docker commands here.")
+    cmd = st.text_input("Command:", placeholder="e.g. docker ps -a")
+    UNSAFE_KEYWORDS = [
+        "rm -rf", "shutdown", "reboot", "poweroff", "dd", ":(){:|:&};:",
+        "mkfs", "systemctl", "service", "killall", "halt"
+    ]
+    if st.button("▶ Run", key="sidebar_run"):
+        if not cmd.strip():
+            st.warning("Please enter a Docker command.")
+        elif any(bad in cmd for bad in UNSAFE_KEYWORDS):
+            st.error("❌ Unsafe command blocked.")
+        elif not cmd.startswith("docker "):
+            st.error("⚠️ Only Docker commands allowed.")
+        else:
+            try:
+                result = subprocess.run(shlex.split(cmd), capture_output=True, text=True, timeout=30)
+                if result.returncode == 0:
+                    st.code(result.stdout or "✅ Command executed successfully", language="bash")
+                else:
+                    st.error(f"⚠️ Error:\n{result.stderr}")
+            except subprocess.TimeoutExpired:
+                st.error("⏳ Command timed out.")
+            except Exception as e:
+                st.error(f"❌ Failed: {e}")
+
+                # Reference link section
+    st.markdown(
+        """
+        📘 **Quick Docker CLI Reference:**
+        - [Container List (`docker container ls`)](https://docs.docker.com/reference/cli/docker/container/ls/)
+        - [Docker Images (`docker image ls`)](https://docs.docker.com/reference/cli/docker/image/ls/)
+        - [Docker Volumes (`docker volume ls`)](https://docs.docker.com/reference/cli/docker/volume/ls/)
+        - [Docker Logs (`docker logs`)](https://docs.docker.com/reference/cli/docker/container/logs/)
+        - [Docker Exec (`docker exec`)](https://docs.docker.com/reference/cli/docker/container/exec/)
+        - [Full CLI Reference](https://docs.docker.com/reference/cli/)
+        - [Docker Troubleshooting](https://github.com/rajani0406/AI-DevOps-Chatbot-Docker-Assistant/wiki/%23-%F0%9F%A7%BE-Docker-Troubleshooting-Summary)
+        """
+    )
+
+# ===============================
+# 🧠 AI Chatbot Page
+# ===============================
+if page == "🤖 AI Chatbot":
+    
+    st.title("🤖 AI DevOps Chatbot – Docker Assistant")
+    user_input = st.text_input(
+        "Ask your Docker assistant a question:",
+        placeholder="e.g. Restart stopped containers, Port Conflict, Dns Issue, Check logs for container xyz, Why is my app not accessible?"
+    )
+    if st.button("🛰️ Roger That!"):
+        try:
+            res = requests.post("http://127.0.0.1:8000/ask", json={"question": user_input})
+            res.raise_for_status()
+            data = res.json()
+            st.subheader("🧠 AI Response")
+            st.write(data["answer"])
+            if data.get("action"):
+                st.success(data["action"])
+        except requests.exceptions.RequestException as e:
+            st.error(f"❌ Backend request failed: {e}")
+            st.info("Ensure FastAPI backend is running on port 8000.")
+        except ValueError:
+            st.error("❌ Invalid response from backend.")
+            
+
+# ===============================
+# 📊 Dashboard Page
+# ===============================
+elif page == "📊 Dashboard":
+    st.title("🐳 Docker Container Dashboard")
+    containers, _ = list_all_containers()
+    RESTART_THRESHOLD = 2
+
+    def check_frequent_restarts(container):
+        try:
+            return container.attrs.get("RestartCount", 0) > RESTART_THRESHOLD
+        except Exception:
+            return False
+
+    total = len(containers)
+    running = sum(1 for c in containers if c.status == "running")
+    exited = sum(1 for c in containers if c.status == "exited")
+    frequent_restart_containers = [c.name for c in containers if check_frequent_restarts(c)]
+
+    st.metric("Total Containers", total)
+    st.metric("Running Containers", running)
+    st.metric("Exited Containers", exited)
+
+    if frequent_restart_containers:
+        st.warning(f"⚠️ Frequent restarts (>2): {', '.join(frequent_restart_containers)}")
+
+# ===============================
+# 📋 Containers Page
+# ===============================
+elif page == "📋 Containers":
+    st.title("📋 All Docker Containers")
+    containers, _ = list_all_containers()
+
+    def get_container_logs(container, lines=5):
+        try:
+            return container.logs(tail=lines).decode("utf-8")
+        except Exception:
+            return "Unable to fetch logs."
+
+    def health_emoji(status):
+        return {"healthy": "🟢", "unhealthy": "🔴", "starting": "🟠"}.get(status, "⚪")
+
+    if not containers:
+        st.info("No containers found.")
+    else:
+        for c in containers:
+            try:
+                health_status = c.attrs.get('State', {}).get('Health', {}).get('Status', 'unknown')
+            except Exception:
+                health_status = "unknown"
+
+            title = f"{c.name} | Status: {c.status} | Health: {health_emoji(health_status)}"
+            if c.attrs.get("RestartCount", 0) > 2:
+                title += " ⚠️ Frequent Restarts!"
+
+            with st.expander(title):
+                st.write(f"**Container ID:** {c.short_id}")
+                st.write(f"**Image:** {(c.image.tags[0] if c.image.tags else '<none>')}")
+                st.write(f"**Status:** {c.status}")
+                st.write(f"**Health:** {health_status}")
+
+                try:
+                    stats = c.stats(stream=False)
+                    cpu = stats.get("cpu_stats", {}).get("cpu_usage", {}).get("total_usage", "N/A")
+                    mem = stats.get("memory_stats", {}).get("usage", "N/A")
+                    st.write(f"**CPU Usage:** {cpu}")
+                    st.write(f"**Memory Usage:** {mem} bytes")
+                except Exception:
+                    st.write("**CPU / Memory Usage:** N/A")
+
+                if c.status.lower() == "exited":
+                    logs = get_container_logs(c, lines=LOG_SNIPPET_LENGTH)
+                    st.code(logs)
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    if st.button(f"🔁 Restart {c.name}"):
+                        try:
+                            c.restart()
+                            st.success(f"✅ {c.name} restarted successfully!")
+                        except Exception as e:
+                            error_msg = str(e)
+                            error_encoded = urllib.parse.quote_plus(error_msg)
+                            st.markdown(f"""
+                                <div style="border:2px solid #ff4b4b;padding:10px;border-radius:8px;background:#fff5f5;">
+                                <b>Docker restart failed:</b> {error_msg}<br><br>
+                                🔹 <a href="https://www.google.com/search?q={error_encoded}" target="_blank">Search on Google</a><br>
+                                🔹 <a href="https://chat.openai.com/?q={error_encoded}" target="_blank">Ask ChatGPT</a>
+                                </div>
+                            """, unsafe_allow_html=True)
+                with col2:
+                    if st.button(f"🛑 Stop {c.name}"):
+                        try:
+                            c.stop()
+                            st.success(f"🛑 {c.name} stopped successfully!")
+                        except Exception as e:
+                            st.error(f"⚠️ Failed: {e}")
+                with col3:
+                    if st.button(f"🗑 Remove {c.name}"):
+                        try:
+                            c.remove(force=True)
+                            st.success(f"🗑️ {c.name} removed successfully!")
+                        except Exception as e:
+                            st.error(f"⚠️ Failed: {e}")
+
+# ===============================
+# 🖼 Images Page
+# ===============================
+elif page == "🖼 Images":
+    import docker
+    st.title("🖼 Docker Images")
+    client = docker.from_env()
     try:
-        res = requests.post("http://127.0.0.1:8000/ask", json={"question": user_input})
-        res.raise_for_status()  # Raise error for 4xx/5xx
-        data = res.json()
+        images = client.images.list()
+    except Exception as e:
+        st.error(f"⚠️ Failed to fetch images: {e}")
+        images = []
 
-        st.subheader("🧠 AI Response")
-        st.write(data["answer"])
+    if not images:
+        st.info("No Docker images found.")
+    else:
+        for img in images:
+            tags = img.tags if img.tags else ["<none>"]
+            used_by = [
+                c.name for c in client.containers.list(all=True)
+                if img.short_id in c.image.id
+            ]
+            st.write(f"**ID:** {img.short_id} | **Tags:** {', '.join(tags)}")
+            if used_by:
+                st.info(f"📦 Used by: {', '.join(used_by)}")
+            if st.button(f"🗑️ Delete {img.short_id}"):
+                if used_by:
+                    st.warning(f"⚠️ In use by: {', '.join(used_by)}")
+                else:
+                    try:
+                        client.images.remove(image=img.id, force=True)
+                        st.success(f"🗑️ Deleted {img.short_id}")
+                    except Exception as e:
+                        st.error(f"⚠️ {e}")
 
-        if data.get("action"):
-            st.success(data["action"])
+# ===============================
+# 💾 Volumes Page
+# ===============================
+elif page == "💾 Volumes":
+    import docker
+    st.title("💾 Docker Volumes")
+    client = docker.from_env()
+    try:
+        volumes = client.volumes.list()
+    except Exception as e:
+        st.error(f"⚠️ Failed to fetch volumes: {e}")
+        volumes = []
 
-        st.subheader("🐳 Container Summary")
-        st.json(data["containers"])
+    if not volumes:
+        st.info("No Docker volumes found.")
+    else:
+        for vol in volumes:
+            st.write(f"**Name:** {vol.name}")
+            st.write(f"**Mountpoint:** {vol.attrs.get('Mountpoint', 'N/A')}")
+            containers_using = [
+                c.name for c in client.containers.list(all=True)
+                if any(m.get("Name") == vol.name for m in c.attrs.get("Mounts", []))
+            ]
+            if containers_using:
+                st.info(f"📦 Used by: {', '.join(containers_using)}")
+            if st.button(f"🗑️ Delete Volume {vol.name}"):
+                if containers_using:
+                    st.warning(f"⚠️ Used by containers: {', '.join(containers_using)}")
+                else:
+                    try:
+                        vol.remove(force=True)
+                        st.success(f"🗑️ Volume '{vol.name}' deleted successfully!")
+                    except Exception as e:
+                        st.error(f"⚠️ {e}")
 
-    except requests.exceptions.RequestException as e:
-        st.error(f"❌ Backend request failed: {e}")
-        st.info("Is FastAPI running on port 8000?")
-    except ValueError:
-        st.error("❌ Invalid JSON received from backend. Check backend logs for errors.")
+if page == "🐳 Docker Environment Check":
+        docker_environment_tab()
 
+if page == "📦 Create Container":
+        docker_create_container_tab()
+# ===============================
+# 🛠 Troubleshooting Page
+# ===============================
+elif page == "🛠 Troubleshooting":
+    st.title("🛠 Docker Troubleshooting Guide")
+    st.markdown(get_troubleshooting_guide(), unsafe_allow_html=True)
+
+elif page=="Command Refrence":
+   # ===============================
+# Docker command reference
+# ===============================
+#def show_docker_command_reference():
+    st.subheader("🤖 Docker Assistant Command Reference")
+    data = [
+        {"Command": "🔁 Restart Stopped Containers", 
+         "Query": "restart stopped containers / restart all stopped containers", 
+         "Bot Response": "Asks for confirmation: '⚠️ Are you sure you want to restart all stopped containers? (yes / no)' → Restarts stopped containers if confirmed, shows restarted container names and any troubleshooting issues."},
+        
+        {"Command": "🧩 Show Stopped Containers", 
+         "Query": "show stopped / list stopped / exited containers", 
+         "Bot Response": "Lists all stopped containers using show_stopped_containers()."},
+        
+        {"Command": "🩺 Health Check", 
+         "Query": "health / healthy", 
+         "Bot Response": "Returns container health summary via get_container_health_summary()."},
+        
+        {"Command": "🌐 DNS Troubleshooting", 
+         "Query": "dns resolution issues / temporary failure resolving", 
+         "Bot Response": "Returns DNS troubleshooting info via Dnsissue()."},
+        
+        {"Command": "🛠 Fix DNS", 
+         "Query": "fix dns issue / fix dns", 
+         "Bot Response": "Fixes DNS issue programmatically via fix_dns_issue()."},
+        
+        {"Command": "🚪 Port Conflict", 
+         "Query": "port conflict / port already in use", 
+         "Bot Response": "Returns instructions to troubleshoot port conflicts via PortConflict()."},
+        
+        {"Command": "🔍 Check Port", 
+         "Query": "check port <number>", 
+         "Bot Response": "Checks which process/service is using the given port via check_port_usage(port). If no port provided, asks: '⚠️ Please specify a valid port number, e.g. check port 8080.'"},
+        
+        {"Command": "⚙️ Lifecycle Commands", 
+         "Query": "start, stop, restart, pause, delete, remove", 
+         "Bot Response": "Sets pending_action['action'] and asks whether to apply to a specific container or all."},
+        
+        {"Command": "🧱 Create Container", 
+         "Query": "create ... from <image> named <name> on port <port>", 
+         "Bot Response": "Creates a new container using create_new_container(image, name, port)."},
+        
+        {"Command": "📦 Show Images", 
+         "Query": "show images / public images", 
+         "Bot Response": "Returns popular images using show_popular_images()."},
+        
+        {"Command": "📊 Container Counts", 
+         "Query": "Questions about container counts", 
+         "Bot Response": "Returns number of running and stopped containers."},
+        
+        {"Command": "📄 Container Status", 
+         "Query": "Questions about container status / show", 
+         "Bot Response": "Returns running/stopped container summary."},
+        
+        {"Command": "🪵 Logs", 
+         "Query": "Questions about container logs (log / error)", 
+         "Bot Response": "Fetches logs via get_container_logs(name) and analyzes them using analyze_logs(logs)."},
+        
+        {"Command": "▶️ Start / ⏹ Stop / 🗑 Remove", 
+         "Query": "Commands like start container <name>, stop container <name>, remove container <name>", 
+         "Bot Response": "Instructs user how to start/stop/remove containers."},
+        
+        {"Command": "⬇️ Pull Image", 
+         "Query": "Commands like pull image <image>", 
+         "Bot Response": "Provides instruction on pulling/updating images."},
+        
+        {"Command": "🌐 Network Issues", 
+         "Query": "Network issues", 
+         "Bot Response": "Returns info about network issues or misconfigured ports."},
+        
+        {"Command": "💡 General Questions", 
+         "Query": "Any other general question", 
+         "Bot Response": "Returns AI fallback: instructions about Docker tasks (status, logs, restart, network troubleshooting, etc.)."}
+    ]
+    
+    df = pd.DataFrame(data)
+    st.dataframe(df, width="stretch", hide_index=True)
+    st.markdown("""
+---
+
+### 🧠 **Container Assistant – Keyword Reference List**
+
+#### 🔁 Restart Stopped Containers
+- `restart stopped containers`  
+- `restart all stopped containers`
+
+#### 🟢 Confirmation Responses
+- `yes`  
+- `y`  
+- `no`  
+- `n`
+
+#### 🧱 Show Stopped Containers
+- `show stopped`  
+- `list stopped`  
+- `exited containers`
+
+#### 🩺 Health Check
+- `health`  
+- `healthy`
+
+#### 🌐 DNS Issues
+- `dns resolution issues`  
+- `temporary failure resolving`  
+- `fix dns issue`  
+- `fix dns`
+
+#### 🔌 Port Conflicts
+- `port conflict`  
+- `port in use`  
+- `check port`
+
+#### 🧰 Container Troubleshooting
+- `troubleshoot`  
+- `container troubleshoot`  
+- `container issue`  
+- `container not working`  
+- `container error`
+
+#### ⚙️ Container Lifecycle (Actions)
+- `start`  
+- `stop`  
+- `restart`  
+- `pause`  
+- `delete`  
+- `remove`
+
+#### 🆕 Create or Run Containers
+- `create`  
+- `run`
+
+#### 🖼️ Image Management
+- `show images`  
+- `public images`
+
+#### 🔍 General Container Info / Logs
+- `how many`  
+- `container`  
+- `status`  
+- `show`  
+- `log`  
+- `error`  
+- `start container`  
+- `stop container`  
+- `remove container`  
+- `pull image`  
+- `network issue`  
+- `show logs of`  
+- `check logs`  
+- `show container status`  
+- `show stopped containers`
+- 'Exit Code 1'
+
+---
+""", unsafe_allow_html=True)
+
+#show_docker_command_reference() 
+
+
+# ===============================
+# Footer
+# ===============================
+st.markdown("<hr><center>🚀 Built with ❤️ by <b>Rajani Khajuria at Celestial Systems </b></center>", unsafe_allow_html=True)
