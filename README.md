@@ -1,5 +1,8 @@
 🐳 Docker Assistant — Prompt Guide
 
+<img width="1832" height="963" alt="image" src="https://github.com/user-attachments/assets/3f83d3c4-a6a5-4202-bb3f-37afd31ab9d6" />
+
+
 A complete reference on how to interact with the bot using natural language.
 
 🧭 Overview
